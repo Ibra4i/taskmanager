@@ -1,0 +1,209 @@
+﻿@page "/fetchdata"
+@using taskManager.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject IDbContextFactory<ApplicationDbContext> ContextFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize]
+<PageTitle>House Chores</PageTitle>
+
+<h1 class="my-4">House Chores</h1>
+
+<h2>Daily Tasks</h2>
+<div class="row">
+    @foreach (var chore in allTasks.Where(c => c.Category == "Daily").GroupBy(c => c.Name).Select(g => g.First()))
+    {
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 mb-4">
+            <div class="card chore-card">
+                <div class="card-header">
+                    <span class="emoji">@GetEmoji(chore.Name)</span>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">@chore.Name</h5>
+                    <p class="card-text">@chore.Description</p>
+                    <button class="btn btn-secondary" @onclick="() => NavigateToHistory(chore)">History</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<h2>Weekly Tasks</h2>
+<div class="row">
+    @foreach (var chore in allTasks.Where(c => c.Category == "Weekly").GroupBy(c => c.Name).Select(g => g.First()))
+    {
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 mb-4">
+            <div class="card chore-card">
+                <div class="card-header">
+                    <span class="emoji">@GetEmoji(chore.Name)</span>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">@chore.Name</h5>
+                    <p class="card-text">@chore.Description</p>
+                    <button class="btn btn-secondary" @onclick="() => NavigateToHistory(chore)">History</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<h2>Monthly Tasks</h2>
+<div class="row">
+    @foreach (var chore in allTasks.Where(c => c.Category == "Monthly").GroupBy(c => c.Name).Select(g => g.First()))
+    {
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 mb-4">
+            <div class="card chore-card">
+                <div class="card-header">
+                    <span class="emoji">@GetEmoji(chore.Name)</span>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">@chore.Name</h5>
+                    <p class="card-text">@chore.Description</p>
+                    <button class="btn btn-secondary" @onclick="() => NavigateToHistory(chore)">History</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+
+<style>
+    .chore-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: none;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+        .chore-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: none;
+        text-align: center;
+        font-size: 2rem;
+    }
+
+    .card-title {
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+
+    .card-text {
+        font-size: 1rem;
+        color: #6c757d;
+    }
+
+    .btn-secondary {
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+            border-color: #545b62;
+        }
+
+    .emoji {
+        font-size: 2rem;
+    }
+</style>
+
+@code {
+    private List<TaskItem> houseChores = new List<TaskItem>
+    {
+        new TaskItem
+        {
+            Name = "Laundry",
+            Description = "Wash and fold clothes.",
+            ImageUrl = "laundry.jpg",
+            Category = "Daily"
+        },
+        new TaskItem
+        {
+            Name = "Do Dishes",
+            Description = "Wash and dry dishes.",
+            ImageUrl = "dishes.jpg",
+            Category = "Daily"
+        },
+        new TaskItem
+        {
+            Name = "Clean the Toilet",
+            Description = "Scrub and disinfect the toilet.",
+            ImageUrl = "toilet.jpg",
+            Category = "Weekly"
+        },
+        new TaskItem
+        {
+            Name = "Vacuum",
+            Description = "Vacuum the floors and carpets.",
+            ImageUrl = "vacuum.jpg",
+            Category = "Weekly"
+        },
+        new TaskItem
+        {
+            Name = "Making Lunch",
+            Description = "Prepare and pack lunch.",
+            ImageUrl = "lunch.jpg",
+            Category = "Daily"
+        },
+        new TaskItem
+        {
+            Name = "Shopping for Grocery",
+            Description = "Buy groceries from the store.",
+            ImageUrl = "grocery.jpg",
+            Category = "Monthly"
+        }
+    };
+
+    private List<TaskItem> completedTasks = new List<TaskItem>();
+    private List<TaskItem> allTasks = new List<TaskItem>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCompletedTasks();
+        allTasks = houseChores.Concat(completedTasks).ToList();
+    }
+
+    private async Task LoadCompletedTasks()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userName = user.Identity.Name;
+
+            using (var context = ContextFactory.CreateDbContext())
+            {
+                completedTasks = await context.Tasks
+                    .Where(t => t.IsCompleted && t.UserId == userName)
+                    .ToListAsync();
+            }
+        }
+    }
+
+    private void NavigateToHistory(TaskItem chore)
+    {
+        Navigation.NavigateTo($"/taskhistory/{chore.Name}");
+    }
+
+    private string GetEmoji(string taskName)
+    {
+        return taskName switch
+        {
+            "Laundry" => "🧺",
+            "Do Dishes" => "🍽️",
+            "Clean the Toilet" => "🚽",
+            "Vacuum" => "🧹",
+            "Making Lunch" => "🍱",
+            "Shopping for Grocery" => "🛒",
+            _ => "❓"
+        };
+    }
+}
+

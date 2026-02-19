@@ -1,0 +1,402 @@
+﻿@page "/weeklydashboard"
+@using taskManager.Data
+@inject NavigationManager Navigation
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IDbContextFactory<ApplicationDbContext> ContextFactory
+@inject ILogger<WeeklyDashboard> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize]
+<PageTitle>Weekly Dashboard</PageTitle>
+
+<h1 class="my-4">Weekly Dashboard</h1>
+
+@if (weeklyTasks == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="calendar-navigation">
+        <button class="btn btn-secondary" @onclick="ShowPreviousWeek">Previous Week</button>
+        <button class="btn btn-secondary" @onclick="ShowNextWeek">Next Week</button>
+    </div>
+    <div class="calendar">
+        @foreach (var day in Enumerable.Range(0, 7))
+        {
+            var currentDate = startDate.AddDays(day);
+            <div class="calendar-day">
+                <div class="calendar-day-header">
+                    @currentDate.ToString("dddd, MMM d")
+                    <button class="btn btn-circle modern-circle-button" @onclick="() => NavigateToAddTask(currentDate)">
+                        +
+                    </button>
+                </div>
+                <div class="calendar-day-body">
+                    @if (weeklyTasks.Any(t => t.DueDate.Date == currentDate.Date))
+                    {
+                        @foreach (var task in weeklyTasks.Where(t => t.DueDate.Date == currentDate.Date))
+                        {
+                            <div class="task-item @(task.IsCompleted ? "completed-task" : "") @(task.IsExpanded ? "expanded" : "")" @onclick="() => ToggleTaskExpansion(task)">
+                                <div class="task-header">
+                                    <strong>@task.Name</strong>
+                                    @if (!task.IsCompleted)
+                                    {
+                                        @if (task.IsExpanded)
+                                        {
+                                            <button class="btn btn-sm complete-button" @onclick="() => MarkTaskAsCompleted(task)">✔️</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm edit-button" @onclick="() => ToggleTaskEditing(task)">✏️</button>
+                                        }
+                                    }
+                                </div>
+                                <small>@task.Assignee</small><br />
+                                <small class="@GetCategoryClass(task.Category)">@task.Category</small>
+
+                                @if (task.IsExpanded)
+                                {
+                                    <p>@task.Description</p>
+                                }
+                                @if (task.IsEditing)
+                                {
+                                    <div>
+                                        <input @bind="task.Name" class="form-control" />
+                                        <input @bind="task.Assignee" class="form-control" />
+                                        <textarea @bind="task.Description" class="form-control"></textarea>
+                                        <button class="btn btn-success btn-sm" @onclick="() => SaveTask(task)">Save</button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="task-item">
+                            <small>No tasks</small>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+    <button class="btn btn-primary" @onclick="NavigateBack">Return</button>
+    <button class="btn btn-primary" @onclick="NavigateToTaskManager">To task manager</button>
+}
+
+<style>
+    .calendar {
+        display: flex;
+        flex-wrap: wrap; /* Allows wrapping on smaller screens */
+        gap: 10px;
+        justify-content: center;
+        align-items: stretch;
+        overflow-x: auto; /* Enables horizontal scrolling if needed */
+        padding: 10px;
+    }
+
+    .calendar-day {
+        flex: 1; /* Makes all days evenly distribute */
+        min-width: 150px; /* Prevents items from becoming too small */
+        max-width: 180px; /* Prevents items from stretching too much */
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        transition: transform 0.2s ease-in-out;
+        text-align: center;
+    }
+
+        .calendar-day:hover {
+            transform: scale(1.05);
+        }
+
+
+    .task-item {
+        cursor: pointer;
+        transition: all 0.3s ease-in-out;
+        border-radius: 0.5rem;
+        padding: 10px;
+        box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+        .task-item:hover {
+            transform: scale(1.05); /* Slight scaling */
+            box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.2); /* Deeper shadow */
+        }
+
+        .task-item .daily {
+            color: #007bff; /* Blue */
+            font-weight: bold;
+        }
+
+        .task-item .weekly {
+            color: #28a745; /* Green */
+            font-weight: bold;
+        }
+
+        .task-item .monthly {
+            color: #fd7e14; /* Orange */
+            font-weight: bold;
+        }
+
+
+        .task-item.completed {
+            background: #d4edda;
+            text-decoration: line-through;
+        }
+
+    .task-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .task-item.expanded {
+        background-color: #f8f9fa;
+        padding: 12px;
+        border: 1px solid #ced4da;
+    }
+
+    .task-header button {
+        transition: transform 0.2s ease-in-out;
+    }
+
+        .task-header button:hover {
+            transform: scale(1.2);
+        }
+
+    .btn-primary {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #0056b3, #003f7f);
+            transform: scale(1.05);
+        }
+
+    .modern-circle-button {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #28a745;
+        color: white;
+        font-size: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        transition: all 0.3s ease;
+    }
+
+        .modern-circle-button:hover {
+            background: #218838;
+            transform: rotate(90deg) scale(1.1);
+        }
+    media (max-width: 768px) {
+        .calendar
+
+    {
+        flex-wrap: nowrap; /* Prevent wrapping, allow scrolling */
+        overflow-x: auto; /* Scrollable row on mobile */
+    }
+
+    .calendar-day {
+        min-width: 120px; /* Adjust size for mobile */
+        max-width: 140px;
+        font-size: 0.9rem;
+        padding: 10px;
+    }
+
+    .modern-circle-button {
+        width: 30px;
+        height: 30px;
+        font-size: 18px;
+    }
+
+    }
+
+    .calendar::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .calendar::-webkit-scrollbar-thumb {
+        background: #007bff;
+        border-radius: 3px;
+    }
+    .calendar-navigation button {
+    background-color: #007bff; /* Primary Blue */
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: all 0.3s ease-in-out;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-navigation button:hover {
+    background-color: #0056b3; /* Darker Blue on Hover */
+    transform: scale(1.05);
+    box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.calendar-navigation button:active {
+    transform: scale(0.98);
+}
+
+    h1 {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+</style>
+
+@code {
+    private List<TaskItem> weeklyTasks;
+    private DateTime startDate;
+    private DateTime endDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        startDate = DateTime.Today;
+        endDate = startDate.AddDays(6);
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user.Identity.IsAuthenticated)
+            {
+                var userName = user.Identity.Name;
+
+                using (var context = ContextFactory.CreateDbContext())
+                {
+                    weeklyTasks = await context.Tasks
+                        .Where(task => task.DueDate >= startDate && task.DueDate <= endDate && task.UserId == userName)
+                        .ToListAsync();
+
+                    // Set IsExpanded to false for each task
+                    // foreach (var task in weeklyTasks)
+                    // {
+                    //     task.IsExpanded = false;
+                    // }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading tasks for the week.");
+        }
+    }
+
+    private async Task ShowPreviousWeek()
+    {
+        try
+        {
+            startDate = startDate.AddDays(-7);
+            endDate = startDate.AddDays(6);
+            await LoadTasks();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error showing previous week.");
+        }
+    }
+
+    private async Task ShowNextWeek()
+    {
+        try
+        {
+            startDate = startDate.AddDays(7);
+            endDate = startDate.AddDays(6);
+            await LoadTasks();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error showing next week.");
+        }
+    }
+
+    private void NavigateToAddTask(DateTime date)
+    {
+        int daysDifference = DaysDifference(date);
+        string s = daysDifference.ToString();
+        Navigation.NavigateTo($"/addtask/{daysDifference}");
+    }
+
+    private int DaysDifference(DateTime date)
+    {
+        return (date - DateTime.Today).Days;
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private void NavigateToTaskManager()
+    {
+        Navigation.NavigateTo("/counter");
+    }
+
+    private void ToggleTaskExpansion(TaskItem task)
+    {
+        task.IsExpanded = !task.IsExpanded;
+    }
+
+    private void ToggleTaskEditing(TaskItem task)
+    {
+        task.IsEditing = !task.IsEditing;
+        task.IsExpanded = !task.IsExpanded;
+    }
+
+    private void SaveTask(TaskItem task)
+    {
+        using (var context = ContextFactory.CreateDbContext())
+        {
+            context.Tasks.Update(task);
+            task.IsEditing = false;
+            context.SaveChanges();
+        }
+    }
+
+    private void MarkTaskAsCompleted(TaskItem task)
+    {
+        using (var context = ContextFactory.CreateDbContext())
+        {
+            task.IsCompleted = true;
+            task.CompletionTime = DateTime.Now; // Set the completion time
+            task.IsExpanded = false;
+            context.Tasks.Update(task);
+            context.SaveChanges();
+        }
+    }
+    private string GetCategoryClass(string category)
+    {
+        return category switch
+        {
+            "Daily" => "daily",
+            "Weekly" => "weekly",
+            "Monthly" => "monthly",
+            _ => ""
+        };
+    }
+
+}
+
+
+
+

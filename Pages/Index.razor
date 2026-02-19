@@ -1,0 +1,16 @@
+﻿@page "/"
+
+<PageTitle>Index</PageTitle>
+
+<h1 class="stylish-title">What's up roomie!</h1>
+
+@* Welcome to your new app.
+
+<SurveyPrompt Title="How is Blazor working for you?" />
+
+<p>
+    <NavLink class="btn btn-primary" href="weeklydashboard">View Weekly Dashboard</NavLink>
+</p> *@
+<AuthorizeView>
+<WeeklyDashboard></WeeklyDashboard>
+</AuthorizeView>

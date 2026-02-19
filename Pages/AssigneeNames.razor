@@ -1,0 +1,48 @@
+﻿@page "/assigneeNames"
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<h4>Assignee Names</h4>
+@if (assigneeNames == null)
+{
+    <p>Loading...</p>
+}
+else if (assigneeNames.Count == 0)
+{
+    <p>No assignees found.</p>
+}
+else
+{
+    <ul>
+        @foreach (var assignee in assigneeNames)
+        {
+            <li>@assignee</li>
+        }
+    </ul>
+}
+
+@code {
+    private List<string> assigneeNames;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userId = user.FindFirst(c => c.Type == "sub")?.Value;
+
+            using (var context = DbContextFactory.CreateDbContext())
+            {
+                assigneeNames = await context.CompletionRecord
+                    .Where(cr => cr.TaskItem.UserId == userId)
+                    .Select(cr => cr.Assignee)
+                    .Distinct()
+                    .ToListAsync();
+            }
+        }
+    }
+}

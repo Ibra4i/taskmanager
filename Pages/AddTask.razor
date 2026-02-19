@@ -1,0 +1,111 @@
+﻿@page "/addTask/{dayss:int}"
+@using taskManager.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IDbContextFactory<ApplicationDbContext> ContextFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<h3>AddTask</h3>
+<div class="card mb-4">
+    <div class="card-header">
+        Add New Task
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-12 col-md-3 mb-2 mb-md-0">
+                <select @bind="selectedDefaultTask" class="form-select stylish-dropdown">
+                    <option value="">Select a default task</option>
+                    <option value="Laundry">Laundry</option>
+                    <option value="Do Dishes">Do Dishes</option>
+                    <option value="Clean the Toilet">Clean the Toilet</option>
+                    <option value="Støvsuge">Støvsuge</option>
+                    <option value="Making Lunch">Making Lunch</option>
+                    <option value="Shopping for Grocery">Shopping for Grocery</option>
+                </select>
+            </div>
+            @if (string.IsNullOrWhiteSpace(selectedDefaultTask))
+            {
+                <div class="col-12 col-md-3 mb-2 mb-md-0">
+                    <input @bind="newTask" class="form-control" placeholder="Enter a new task" />
+                </div>
+            }
+            <div class="col-12 col-md-3 mb-2 mb-md-0">
+                <input @bind="newAssignee" class="form-control" placeholder="Assignee" />
+            </div>
+            <div class="col-12 col-md-3 mb-2 mb-md-0">
+                <select @bind="newCategory" class="form-select">
+                    <option value="">Select a category</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-3 mb-2 mb-md-0">
+                <textarea @bind="newDescription" class="form-control" placeholder="Enter a description"></textarea>
+            </div>
+            <div class="col-12 col-md-3">
+                <button class="btn btn-primary w-100" @onclick="addTask">Add Task</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Dayss { get; set; }
+    private string selectedDefaultTask;
+    private string newTask;
+    private string newAssignee;
+    private DateTime newDueDate = DateTime.Today;
+    private string newCategory = "Daily";
+    private string newImageUrl = "default.jpg"; // Add a default image URL
+    private string newDescription;
+    private List<TaskItem> tasks = new();
+
+    private DateTime CalculateDate(int daysDifference)
+    {
+        return DateTime.Today.AddDays(daysDifference);
+    }
+
+    private async Task addTask()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userName = user.Identity.Name;
+            var taskName = !string.IsNullOrWhiteSpace(selectedDefaultTask) ? selectedDefaultTask : newTask;
+
+            if (!string.IsNullOrWhiteSpace(taskName) && !string.IsNullOrWhiteSpace(newAssignee) && !string.IsNullOrWhiteSpace(newCategory))
+            {
+                using (var context = ContextFactory.CreateDbContext())
+                {
+                    var task = new TaskItem
+                        {
+                            Name = taskName,
+                            Assignee = newAssignee,
+                            Description = newDescription, // Provide a value for the Description property
+                            ImageUrl = newImageUrl, // Provide a value for the ImageUrl property
+                            CreationTime = DateTime.Now,
+                            DueDate = CalculateDate(Dayss),
+                            Category = newCategory,
+                            Streak = 0, // Initialize the streak to 0
+                            UserId = userName // Set the UserId to the logged-in user's name
+                        };
+                    context.Tasks.Add(task);
+                    context.SaveChanges();
+                    tasks.Add(task);
+                }
+                newTask = string.Empty;
+                newAssignee = string.Empty;
+                newDueDate = CalculateDate(Dayss);
+                selectedDefaultTask = string.Empty;
+                newCategory = "Daily";
+                newImageUrl = "default.jpg"; // Reset the image URL
+                newDescription = "No Description"; // Reset the description
+            }
+            Navigation.NavigateTo("/weeklydashboard");
+        }
+    }
+}

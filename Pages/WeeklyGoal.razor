@@ -1,0 +1,146 @@
+﻿@page "/weeklygoal"
+@using taskManager.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+@inject IDbContextFactory<ApplicationDbContext> ContextFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize]
+<PageTitle>Weekly Goal</PageTitle>
+
+<h1 class="my-4">Weekly Goal</h1>
+
+@if (weeklyTasks == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="goal-container">
+        <div class="goal-input">
+            <label for="goalInput">Set Weekly Goal:</label>
+            <input type="number" id="goalInput" @bind="goal" class="form-control" min="1" />
+            <button class="btn btn-primary mt-2" @onclick="SaveGoal">Save Goal</button>
+        </div>
+        @foreach (var assignee in assignees)
+        {
+            <div class="assignee-progress">
+                <h3>@assignee</h3>
+                <div class="progress">
+                    <div class="progress-bar" role="progressbar" style="width: @GetProgress(assignee)%;" aria-valuenow="@GetCompletedTasks(assignee)" aria-valuemin="0" aria-valuemax="@goal">@GetProgress(assignee)%</div>
+                </div>
+            </div>
+        }
+        <p>@motivationalText</p>
+    </div>
+}
+
+<button class="btn btn-primary" @onclick="NavigateBack">Return</button>
+
+<style>
+    .goal-container {
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .goal-input {
+        margin-bottom: 20px;
+    }
+
+    .assignee-progress {
+        margin-bottom: 20px;
+    }
+
+    .progress {
+        height: 30px;
+        margin-bottom: 10px;
+    }
+
+    .progress-bar {
+        background-color: #28a745;
+        font-size: 1rem;
+        line-height: 30px;
+    }
+</style>
+
+@code {
+    private List<TaskItem> weeklyTasks;
+    private List<string> assignees;
+    private int goal = 5; // Default weekly goal
+    private string motivationalText;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+        assignees = weeklyTasks.Select(t => t.Assignee).Distinct().ToList();
+        motivationalText = GetMotivationalText();
+    }
+
+    private async Task LoadTasks()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userName = user.Identity.Name;
+
+            using (var context = ContextFactory.CreateDbContext())
+            {
+                var startDate = DateTime.Today;
+                var endDate = DateTime.Today.AddDays(7);
+
+                weeklyTasks = await context.Tasks
+                    .Where(task => task.DueDate >= startDate && task.DueDate <= endDate && task.UserId == userName)
+                    .ToListAsync();
+            }
+        }
+    }
+
+    private int GetCompletedTasks(string assignee)
+    {
+        return weeklyTasks.Count(t => t.Assignee == assignee && t.IsCompleted);
+    }
+
+    private double GetProgress(string assignee)
+    {
+        return (double)GetCompletedTasks(assignee) / goal * 100;
+    }
+
+    private string GetMotivationalText()
+    {
+        var totalProgress = (double)weeklyTasks.Count(t => t.IsCompleted) / (goal * assignees.Count) * 100;
+        if (totalProgress >= 100)
+        {
+            return "Congratulations! You've reached your goal!";
+        }
+        else if (totalProgress >= 75)
+        {
+            return "Almost there! Keep up the great work!";
+        }
+        else if (totalProgress >= 50)
+        {
+            return "You're halfway there! Keep going!";
+        }
+        else if (totalProgress >= 25)
+        {
+            return "Great start! Keep pushing!";
+        }
+        else
+        {
+            return "Let's get started! You can do it!";
+        }
+    }
+
+    private void SaveGoal()
+    {
+        motivationalText = GetMotivationalText();
+        StateHasChanged();
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+}
+

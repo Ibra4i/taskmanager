@@ -1,0 +1,165 @@
+﻿@page "/taskhistory/{taskName}"
+@using taskManager.Data
+@inject NavigationManager Navigation
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IDbContextFactory<ApplicationDbContext> ContextFactory
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize]
+<PageTitle>Task History</PageTitle>
+
+<h1 class="my-4">Task History</h1>
+
+@if (taskHistory.Count == 0)
+{
+    <p>No task completed...</p>
+    <button class="btn btn-primary" @onclick="NavigateBack">Return</button>
+}
+else
+{
+    <h2>@TaskName</h2>
+    @* <p>@task.Description</p> *@
+    <h3>Next Turn Suggestion</h3>
+    <p>@nextTurnSuggestion</p>
+
+    @* @if (task.CompletionHistory.Any())
+    { *@
+    <table class="table">
+        <thead>
+            <tr>
+                <th>
+                    <button class="btn" @onclick="SortByAssignee">Assignee</button>
+                </th>
+                <th> <button class="btn" @onclick="SortByDueTime">Due Time</button></th>
+                <th> <button class="btn" @onclick="SortByCompletionTime">Completion Time</button></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var record in taskHistory)
+            {
+                <tr>
+                    <td>@record.Assignee</td>
+                    <td>@record.DueDate.ToString("g")</td>
+                    <td>@record.CompletionTime?.ToString("g")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @* } *@
+    @* else
+    {
+        <p>There is nothing in the completion history.</p>
+    } *@
+
+    <button class="btn btn-primary" @onclick="NavigateBack">Return</button>
+}
+
+@code {
+    [Parameter] public string TaskName { get; set; }
+    private TaskItem task;
+    private List<TaskItem> completedTasks = new();
+    private List<TaskItem> taskHistory = new();
+    private bool sortByAssigneeAscending = true;
+    private bool sortByDueTimeAscending = true;
+    private bool sortByCompletionTimeAscending = true;
+    private string nextTurnSuggestion;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+        // Load the task based on the TaskName
+        taskHistory = GetCompletedTasksByName(TaskName);
+        // Suggest the next turn
+        nextTurnSuggestion = SuggestNextTurn();
+    }
+
+    private async Task LoadTasks()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity.IsAuthenticated)
+        {
+            var userName = user.Identity.Name;
+
+            using (var context = ContextFactory.CreateDbContext())
+            {
+                completedTasks = await context.Tasks
+                    .Where(t => t.IsCompleted && t.UserId == userName)
+                    .ToListAsync();
+            }
+        }
+    }
+
+    private List<TaskItem> GetCompletedTasksByName(string taskName)
+    {
+        return completedTasks
+            .Where(t => t.Name.Equals(taskName, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(t => t.CompletionTime)
+            .ToList();
+    }
+
+    private string SuggestNextTurn()
+    {
+        if (taskHistory.Count == 0)
+        {
+            return "No task completed yet.";
+        }
+
+        var userTaskCounts = taskHistory
+            .GroupBy(t => t.Assignee)
+            .Select(g => new { User = g.Key, Count = g.Count() })
+            .OrderBy(g => g.Count)
+            .ToList();
+
+        var lastUser = taskHistory.First().Assignee;
+        var nextUser = userTaskCounts.FirstOrDefault(u => u.User != lastUser)?.User;
+
+        return nextUser ?? "No suggestion available.";
+    }
+
+    private void SortByAssignee()
+    {
+        if (sortByAssigneeAscending)
+        {
+            taskHistory = taskHistory.OrderBy(t => t.Assignee).ToList();
+        }
+        else
+        {
+            taskHistory = taskHistory.OrderByDescending(t => t.Assignee).ToList();
+        }
+        sortByAssigneeAscending = !sortByAssigneeAscending;
+    }
+
+    private void SortByDueTime()
+    {
+        if (sortByDueTimeAscending)
+        {
+            taskHistory = taskHistory.OrderBy(t => t.DueDate).ToList();
+        }
+        else
+        {
+            taskHistory = taskHistory.OrderByDescending(t => t.DueDate).ToList();
+        }
+        sortByDueTimeAscending = !sortByDueTimeAscending;
+    }
+
+    private void SortByCompletionTime()
+    {
+        if (sortByCompletionTimeAscending)
+        {
+            taskHistory = taskHistory.OrderBy(t => t.CompletionTime).ToList();
+        }
+        else
+        {
+            taskHistory = taskHistory.OrderByDescending(t => t.CompletionTime).ToList();
+        }
+        sortByCompletionTimeAscending = !sortByCompletionTimeAscending;
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/fetchdata");
+    }
+}
+

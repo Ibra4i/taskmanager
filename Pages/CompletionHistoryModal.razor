@@ -1,0 +1,49 @@
+﻿@using taskManager.Data
+@inject IJSRuntime JSRuntime
+
+<div class="modal fade" id="completionHistoryModal" tabindex="-1" aria-labelledby="completionHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="completionHistoryModalLabel">Completion History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (task.CompletionHistory.Any())
+                {
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Assignee</th>
+                                <th>Completion Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var record in task.CompletionHistory.OrderBy(r => r.CompletionTime))
+                            {
+                                <tr>
+                                    <td>@record.Assignee</td>
+                                    <td>@record.CompletionTime.ToString("g")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p>There is nothing in the completion history.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private TaskItem task = new TaskItem();
+
+    public void Show(TaskItem taskItem)
+    {
+        task = taskItem;
+        JSRuntime.InvokeVoidAsync("showModal", "completionHistoryModal");
+    }
+}
