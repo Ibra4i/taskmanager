@@ -1,0 +1,87 @@
+﻿@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "";
+}
+
+<h1 class="text-center">@ViewData["Title"]</h1>
+<div class="d-flex justify-content-center align-items-center vh-100">
+    <div class="col-md-6">
+        <section class="card shadow-sm p-4 mb-5 bg-white rounded">
+            <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post">
+                <h2 class="text-center mb-4">Create a new account</h2>
+                <hr />
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="form-floating mb-3">
+                    <input asp-for="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="Email" />
+                    <label asp-for="Input.Email" class="form-label">Email</label>
+                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                </div>
+                <div class="form-floating mb-3">
+                    <input asp-for="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="Password" />
+                    <label asp-for="Input.Password" class="form-label">Password</label>
+                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+                </div>
+                <div class="form-floating mb-3">
+                    <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="Confirm Password" />
+                    <label asp-for="Input.ConfirmPassword" class="form-label">Confirm Password</label>
+                    <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
+                </div>
+                <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
+            </form>
+        </section>
+    </div>
+</div>
+
+<style>
+    /* Custom styles for the register page */
+    .card {
+        border: none;
+        border-radius: 10px;
+        background-color: #e0f7fa; /* Modern light teal background */
+        padding: 40px 20px; /* Add padding around the card, with more padding at the top */
+    }
+
+        .card h2, .card h3 {
+            font-weight: 700;
+        }
+
+        .card .form-floating label {
+            color: #6c757d;
+        }
+
+        .card .form-floating input {
+            border-radius: 5px;
+        }
+
+        .card .btn-primary {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+            .card .btn-primary:hover {
+                background: linear-gradient(45deg, #0056b3, #003f7f);
+                transform: scale(1.05);
+            }
+
+        .card .btn-outline-primary {
+            border: 2px solid #007bff;
+            color: #007bff;
+            transition: all 0.3s ease;
+        }
+
+            .card .btn-outline-primary:hover {
+                background: #007bff;
+                color: white;
+                transform: scale(1.05);
+            }
+
+    .vh-100 {
+        height: 100vh;
+    }
+</style>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
